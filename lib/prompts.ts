@@ -96,6 +96,40 @@ export type ParseFoodResponse = {
   notes: string;
 };
 
+// Vision prompt is paired with an image part in the Gemini call. Returns
+// the same shape as buildFoodParsePrompt so we can reuse the confirm UI.
+export const FOOD_PHOTO_PROMPT = `This is a photo of a meal eaten by an Indian user. Identify each visible
+food item, estimate quantity from visual cues (plate size, hand reference if
+visible, typical serving size for that dish), and return JSON.
+
+Return JSON in this exact shape — no prose, no markdown fences:
+{
+  "items": [
+    {
+      "name": "string (English, lowercase, e.g. 'roti', 'dal tadka')",
+      "name_hindi": "string or null",
+      "quantity": number,
+      "unit": "g" | "ml" | "cup" | "piece" | "serving",
+      "calories_kcal": number,
+      "protein_g": number,
+      "carbs_g": number,
+      "fats_g": number,
+      "fibre_g": number,
+      "confidence": "high" | "medium" | "low"
+    }
+  ],
+  "notes": "string — anything the user should verify (e.g. portion size guess), max 30 words."
+}
+
+Rules:
+- One item per distinct visible food.
+- Estimate per-quantity nutrition (not per 100g).
+- Use Indian portion conventions: 1 katori≈150g, 1 roti≈40g, 1 plate poha≈200g, 1 glass milk/juice≈250ml, 1 bowl rice≈200g.
+- "confidence: low" if the photo is blurry or the item is ambiguous.
+- If the photo is unclear or has no food, return: {"items": [], "notes": "Photo unclear, please retake or use search."}.
+- Numbers must be plain (no strings, no ranges).
+`;
+
 export function buildFoodParsePrompt(userInput: string): string {
   return `User typed: ${JSON.stringify(userInput)}
 

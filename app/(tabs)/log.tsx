@@ -17,7 +17,7 @@ type Method =
       body: string;
       icon: React.ReactNode;
       available: true;
-      href: '/log/search' | '/log/ai-text';
+      href: '/log/search' | '/log/ai-text' | '/log/camera';
     }
   | {
       key: string;
@@ -49,7 +49,8 @@ const METHODS: Method[] = [
     title: 'Photograph plate',
     body: 'Snap your meal and get an estimate.',
     icon: <Camera size={22} color="#8B5CF6" />,
-    available: false,
+    href: '/log/camera',
+    available: true,
   },
   {
     key: 'barcode',

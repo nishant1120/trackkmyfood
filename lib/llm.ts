@@ -2,6 +2,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 
 import {
   buildFoodParsePrompt,
+  FOOD_PHOTO_PROMPT,
   SYSTEM_PROMPT,
   type ParseFoodResponse,
 } from './prompts';
@@ -105,6 +106,67 @@ function isParseFoodResponse(x: unknown): x is ParseFoodResponse {
     if (typeof it.calories_kcal !== 'number') return false;
   }
   return true;
+}
+
+// Strip the "data:image/jpeg;base64," prefix that web file readers produce.
+function stripDataUrlPrefix(b64: string): { data: string; mime: string } {
+  const m = b64.match(/^data:(image\/(?:jpeg|png|webp));base64,(.+)$/);
+  if (m) return { mime: m[1], data: m[2] };
+  return { mime: 'image/jpeg', data: b64 };
+}
+
+export async function parseFoodPhoto(
+  imageBase64: string
+): Promise<LLMResult<ParseFoodResponse>> {
+  if (!client) {
+    return { ok: false, error: { kind: 'no_api_key', message: 'Gemini API key missing' } };
+  }
+  const { data, mime } = stripDataUrlPrefix(imageBase64);
+  try {
+    const model = client.getGenerativeModel({
+      model: TEXT_MODEL,
+      systemInstruction: SYSTEM_PROMPT,
+      generationConfig: {
+        temperature: 0.4,
+        maxOutputTokens: 1500,
+        responseMimeType: 'application/json',
+      },
+    });
+    const res = await model.generateContent([
+      { text: FOOD_PHOTO_PROMPT },
+      { inlineData: { mimeType: mime, data } },
+    ]);
+    const text = res.response.text();
+    const parsed = (() => {
+      let s = text.trim();
+      if (s.startsWith('```')) s = s.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
+      const first = s.indexOf('{');
+      const last = s.lastIndexOf('}');
+      if (first >= 0 && last > first) s = s.slice(first, last + 1);
+      try {
+        return JSON.parse(s) as ParseFoodResponse;
+      } catch {
+        return null;
+      }
+    })();
+    if (!parsed || !isParseFoodResponse(parsed)) {
+      return {
+        ok: false,
+        error: { kind: 'parse', message: `Could not parse JSON: ${text.slice(0, 200)}` },
+      };
+    }
+    return { ok: true, data: parsed };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    const lower = msg.toLowerCase();
+    if (lower.includes('rate') || lower.includes('quota') || lower.includes('429')) {
+      return { ok: false, error: { kind: 'rate_limit', message: msg } };
+    }
+    if (lower.includes('fetch') || lower.includes('network')) {
+      return { ok: false, error: { kind: 'network', message: msg } };
+    }
+    return { ok: false, error: { kind: 'unknown', message: msg } };
+  }
 }
 
 export async function parseFoodText(userInput: string): Promise<LLMResult<ParseFoodResponse>> {

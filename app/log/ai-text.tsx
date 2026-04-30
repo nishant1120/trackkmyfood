@@ -59,7 +59,10 @@ export default function AiTextScreen() {
         );
         return;
       }
-      setParsed(result.data.items, result.data.notes, input);
+      setParsed(result.data.items, result.data.notes, {
+        sourceText: input,
+        loggedVia: 'ai_text',
+      });
       router.push('/log/ai-confirm');
     } finally {
       setSubmitting(false);

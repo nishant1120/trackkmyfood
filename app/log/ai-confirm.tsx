@@ -50,6 +50,7 @@ export default function AiConfirmScreen() {
   const [items, setItems] = useState<EditableItem[]>([]);
   const [notes, setNotes] = useState<string>('');
   const [sourceText, setSourceText] = useState<string>('');
+  const [loggedVia, setLoggedVia] = useState<'ai_text' | 'camera'>('ai_text');
   const [meal, setMeal] = useState<MealType>(defaultMeal());
 
   // Pop the pending parse on mount. If there's nothing pending (e.g. user
@@ -65,6 +66,7 @@ export default function AiConfirmScreen() {
     );
     setNotes(pending.notes ?? '');
     setSourceText(pending.sourceText ?? '');
+    setLoggedVia(pending.loggedVia);
   }, [router, take]);
 
   const totals = useMemo(() => {
@@ -134,7 +136,7 @@ export default function AiConfirmScreen() {
       carbs_g: Number(it.carbs_g) || 0,
       fats_g: Number(it.fats_g) || 0,
       fibre_g: Number(it.fibre_g) || 0,
-      logged_via: 'ai_text',
+      logged_via: loggedVia,
       notes: it.name,
     }));
 
@@ -172,8 +174,14 @@ export default function AiConfirmScreen() {
         >
           {sourceText ? (
             <Text className="text-fg-dim text-xs">
-              You typed:{' '}
-              <Text className="text-fg-muted italic">"{sourceText}"</Text>
+              {loggedVia === 'camera' ? (
+                'From photo'
+              ) : (
+                <>
+                  You typed:{' '}
+                  <Text className="text-fg-muted italic">"{sourceText}"</Text>
+                </>
+              )}
             </Text>
           ) : null}
 
