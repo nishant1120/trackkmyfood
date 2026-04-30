@@ -1,7 +1,6 @@
 import { Flame } from 'lucide-react-native';
 import { useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   RefreshControl,
   ScrollView,
@@ -18,7 +17,7 @@ import {
 import { MacroTrendChart } from '@/components/charts/MacroTrendChart';
 import { WeeklyCaloriesChart } from '@/components/charts/WeeklyCaloriesChart';
 import { WeightChart } from '@/components/charts/WeightChart';
-import { Button, Card, Screen } from '@/components/ui';
+import { Button, Card, Screen, Skeleton } from '@/components/ui';
 import { useProfile } from '@/hooks/useProfile';
 import { useStreak } from '@/hooks/useStreak';
 import { useTrends } from '@/hooks/useTrends';
@@ -121,7 +120,7 @@ export default function HistoryTab() {
             </Text>
           </View>
           {trendsQuery.isLoading ? (
-            <ActivityIndicator size="small" color="#1DB954" />
+            <Skeleton width="100%" height={104} rounded="md" />
           ) : trends ? (
             <View>
               <StreakHeatmap days={trends.days} goalKcal={goalKcal} />
@@ -146,7 +145,7 @@ export default function HistoryTab() {
               width={chartWidth}
             />
           ) : (
-            <ActivityIndicator size="small" color="#1DB954" />
+            <Skeleton width="100%" height={160} rounded="md" />
           )}
         </Card>
 
@@ -158,7 +157,7 @@ export default function HistoryTab() {
           {trends ? (
             <MacroTrendChart days={trends.days} width={chartWidth} />
           ) : (
-            <ActivityIndicator size="small" color="#1DB954" />
+            <Skeleton width="100%" height={140} rounded="md" />
           )}
         </Card>
 

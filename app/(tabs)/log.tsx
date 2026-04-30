@@ -11,6 +11,7 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { Card, Screen } from '@/components/ui';
 import { useTemplates, type MealTemplate } from '@/hooks/useTemplates';
+import { haptic } from '@/lib/haptics';
 import type { ParsedFoodItem } from '@/lib/prompts';
 import { useAiParseStore } from '@/stores/aiParseStore';
 
@@ -68,6 +69,7 @@ export default function LogTab() {
   const recent = (templates ?? []).slice(0, 4);
 
   const applyTemplate = (template: MealTemplate) => {
+    haptic.selection();
     const items: ParsedFoodItem[] = (template.items ?? []).map((it) => ({
       name: it.name,
       name_hindi: it.name_hindi ?? null,

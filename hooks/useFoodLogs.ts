@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
+import { haptic } from '@/lib/haptics';
 import { supabase } from '@/lib/supabase';
 import type { FoodLog, LoggedVia, MealType, Unit } from '@/lib/types';
 import { useAuthStore } from '@/stores/authStore';
@@ -48,7 +49,11 @@ export function useAddFoodLog() {
       return data as FoodLog;
     },
     onSuccess: () => {
+      haptic.success();
       invalidateLogs(queryClient, userId);
+    },
+    onError: () => {
+      haptic.error();
     },
   });
 }
@@ -75,7 +80,11 @@ export function useBulkAddFoodLogs() {
       return (data ?? []) as FoodLog[];
     },
     onSuccess: () => {
+      haptic.success();
       invalidateLogs(queryClient, userId);
+    },
+    onError: () => {
+      haptic.error();
     },
   });
 }

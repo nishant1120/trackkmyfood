@@ -1,6 +1,7 @@
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 
 import { Card } from '@/components/ui';
+import { haptic } from '@/lib/haptics';
 
 type WaterTrackerProps = {
   consumed_ml: number;
@@ -42,9 +43,30 @@ export function WaterTracker({
       </View>
 
       <View className="mt-4 flex-row gap-2">
-        <WaterButton onPress={() => onAdd(250)} disabled={!!isAdding} label="+250ml" />
-        <WaterButton onPress={() => onAdd(500)} disabled={!!isAdding} label="+500ml" />
-        <WaterButton onPress={() => onAdd(1000)} disabled={!!isAdding} label="+1L" />
+        <WaterButton
+          onPress={() => {
+            haptic.light();
+            onAdd(250);
+          }}
+          disabled={!!isAdding}
+          label="+250ml"
+        />
+        <WaterButton
+          onPress={() => {
+            haptic.light();
+            onAdd(500);
+          }}
+          disabled={!!isAdding}
+          label="+500ml"
+        />
+        <WaterButton
+          onPress={() => {
+            haptic.medium();
+            onAdd(1000);
+          }}
+          disabled={!!isAdding}
+          label="+1L"
+        />
         {isAdding ? (
           <View className="ml-2 justify-center">
             <ActivityIndicator size="small" color="#539DF5" />

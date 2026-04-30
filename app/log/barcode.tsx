@@ -20,6 +20,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { WebBarcodeScanner } from '@/components/log/WebBarcodeScanner';
 import { Button, Card } from '@/components/ui';
+import { haptic } from '@/lib/haptics';
 import { lookupBarcode } from '@/lib/openfoodfacts';
 import { supabase } from '@/lib/supabase';
 import type { Food } from '@/lib/types';
@@ -49,6 +50,7 @@ export default function BarcodeScreen() {
     if (!barcode) return;
     if (handledRef.current.has(barcode)) return;
     handledRef.current.add(barcode);
+    haptic.success();
     setStatus({ kind: 'looking-up', barcode });
 
     try {

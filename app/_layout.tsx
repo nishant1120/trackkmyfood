@@ -2,6 +2,9 @@ import 'react-native-reanimated';
 import 'react-native-url-polyfill/auto';
 import '../global.css';
 
+import { initSentry } from '@/lib/sentry';
+initSentry();
+
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import * as Linking from 'expo-linking';
 import { Stack, useRouter, useSegments } from 'expo-router';

@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
+import { haptic } from '@/lib/haptics';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/stores/authStore';
 
@@ -19,10 +20,14 @@ export function useAddWeight() {
       if (error) throw error;
     },
     onSuccess: () => {
+      haptic.success();
       queryClient.invalidateQueries({
         queryKey: ['trends', userId],
         refetchType: 'all',
       });
+    },
+    onError: () => {
+      haptic.error();
     },
   });
 }
