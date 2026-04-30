@@ -11,6 +11,7 @@ import { ActivityIndicator, Platform, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { useProfile } from '@/hooks/useProfile';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/stores/authStore';
 
@@ -20,6 +21,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const segments = useSegments();
   const router = useRouter();
+  const profileQuery = useProfile();
 
   useEffect(() => {
     initialize();
@@ -55,17 +57,37 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     const inAuthGroup = firstSegment === '(auth)';
     const inOnboardingGroup = firstSegment === '(onboarding)';
 
-    if (!isAuthenticated && !inAuthGroup) {
-      router.replace('/(auth)/sign-in');
-    } else if (isAuthenticated && inAuthGroup) {
-      // Phase 2 will check profile here and route to onboarding if missing
+    // Not authed → sign-in
+    if (!isAuthenticated) {
+      if (!inAuthGroup) router.replace('/(auth)/sign-in');
+      return;
+    }
+
+    // Authed: wait until profile fetch resolves before deciding where to go
+    if (profileQuery.isLoading) return;
+
+    const hasProfile = !!profileQuery.data;
+
+    if (!hasProfile && !inOnboardingGroup) {
+      router.replace('/(onboarding)/profile-setup');
+    } else if (hasProfile && (inAuthGroup || inOnboardingGroup)) {
       router.replace('/(tabs)');
     }
-    // suppress unused warning until Phase 2
-    void inOnboardingGroup;
-  }, [isInitialized, isAuthenticated, segments, router]);
+  }, [
+    isInitialized,
+    isAuthenticated,
+    profileQuery.isLoading,
+    profileQuery.data,
+    segments,
+    router,
+  ]);
 
-  if (!isInitialized) {
+  // Loading: pre-init OR (authed but profile still loading and we're not yet
+  // on a screen that can render without it)
+  const showSpinner =
+    !isInitialized || (isAuthenticated && profileQuery.isLoading);
+
+  if (showSpinner) {
     return (
       <View className="flex-1 items-center justify-center bg-bg">
         <ActivityIndicator size="large" color="#1DB954" />
