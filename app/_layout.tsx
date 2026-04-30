@@ -14,6 +14,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useProfile } from '@/hooks/useProfile';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/stores/authStore';
+import { useThemeStore } from '@/stores/themeStore';
 
 function AuthGate({ children }: { children: React.ReactNode }) {
   const initialize = useAuthStore((s) => s.initialize);
@@ -23,9 +24,12 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const profileQuery = useProfile();
 
+  const hydrateTheme = useThemeStore((s) => s.hydrate);
+
   useEffect(() => {
     initialize();
-  }, [initialize]);
+    hydrateTheme();
+  }, [initialize, hydrateTheme]);
 
   // Native: handle deep links (e.g. nutritrack://verify?code=...)
   useEffect(() => {

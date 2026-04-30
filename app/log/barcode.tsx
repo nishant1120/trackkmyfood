@@ -18,6 +18,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { WebBarcodeScanner } from '@/components/log/WebBarcodeScanner';
 import { Button, Card } from '@/components/ui';
 import { lookupBarcode } from '@/lib/openfoodfacts';
 import { supabase } from '@/lib/supabase';
@@ -159,7 +160,9 @@ export default function BarcodeScreen() {
   }
 
   // Manual entry (used on web + when permission denied)
-  if (manualEntry || !permission.granted) {
+  // On web, permission.granted is unreliable; ZXing prompts directly when
+  // the camera path is rendered, so we skip the gate there.
+  if (manualEntry || (Platform.OS !== 'web' && !permission.granted)) {
     return (
       <SafeAreaView className="flex-1 bg-bg" edges={['top', 'bottom']}>
         <KeyboardAvoidingView
@@ -202,14 +205,15 @@ export default function BarcodeScreen() {
               <Button
                 variant="ghost"
                 onPress={async () => {
-                  if (!permission.granted) {
+                  // On web ZXing prompts for camera access itself; skip the
+                  // expo-camera permission gate which doesn't reflect browser
+                  // state accurately.
+                  if (Platform.OS !== 'web' && !permission.granted) {
                     const r = await requestPermission();
                     if (!r.granted) {
                       Alert.alert(
                         'Camera blocked',
-                        Platform.OS === 'web'
-                          ? 'Allow camera access in your browser to scan with the camera.'
-                          : 'Allow camera access in Settings to scan with the camera.'
+                        'Allow camera access in Settings to scan with the camera.'
                       );
                       return;
                     }
@@ -221,7 +225,8 @@ export default function BarcodeScreen() {
               </Button>
               {Platform.OS === 'web' ? (
                 <Text className="text-fg-dim mt-1 text-center text-[11px]">
-                  Web cameras vary; if scanning misses, use manual entry.
+                  Your browser will ask for camera access. If detection
+                  misses, use manual entry.
                 </Text>
               ) : null}
             </View>
@@ -237,29 +242,35 @@ export default function BarcodeScreen() {
       <Header onBack={() => router.back()} />
       <View className="flex-1">
         <View className="flex-1 overflow-hidden">
-          <CameraView
-            style={{ flex: 1 }}
-            facing="back"
-            barcodeScannerSettings={{
-              barcodeTypes: ['ean13', 'ean8', 'upc_e', 'upc_a', 'code128'],
-            }}
-            onBarcodeScanned={({ data }) => handleBarcode(data)}
-          />
-          {/* Reticle */}
-          <View
-            pointerEvents="none"
-            className="absolute inset-0 items-center justify-center"
-          >
-            <View
-              style={{
-                width: '70%',
-                aspectRatio: 1.6,
-                borderColor: '#1DB954',
-                borderWidth: 2,
-                borderRadius: 16,
-              }}
-            />
-          </View>
+          {Platform.OS === 'web' ? (
+            <WebBarcodeScanner onScan={handleBarcode} />
+          ) : (
+            <>
+              <CameraView
+                style={{ flex: 1 }}
+                facing="back"
+                barcodeScannerSettings={{
+                  barcodeTypes: ['ean13', 'ean8', 'upc_e', 'upc_a', 'code128'],
+                }}
+                onBarcodeScanned={({ data }) => handleBarcode(data)}
+              />
+              {/* Reticle */}
+              <View
+                pointerEvents="none"
+                className="absolute inset-0 items-center justify-center"
+              >
+                <View
+                  style={{
+                    width: '70%',
+                    aspectRatio: 1.6,
+                    borderColor: '#1DB954',
+                    borderWidth: 2,
+                    borderRadius: 16,
+                  }}
+                />
+              </View>
+            </>
+          )}
         </View>
         <View className="border-border-dim border-t px-6 py-4 pb-8">
           <View className="flex-row items-center justify-center gap-3">
