@@ -47,23 +47,29 @@ export default function BarcodeScreen() {
 
   const handleBarcode = async (raw: string) => {
     const barcode = raw.trim();
+    console.log('[barcode] handleBarcode called with:', JSON.stringify(raw));
     if (!barcode) return;
-    if (handledRef.current.has(barcode)) return;
+    if (handledRef.current.has(barcode)) {
+      console.log('[barcode] already handled, ignoring duplicate');
+      return;
+    }
     handledRef.current.add(barcode);
     haptic.success();
     setStatus({ kind: 'looking-up', barcode });
 
     try {
       // 1) Look in our seeded foods first (we already have ~553 OFF rows).
-      const { data: dbHit } = await supabase
+      console.log('[barcode] checking local foods table for', barcode);
+      const { data: dbHit, error: dbErr } = await supabase
         .from('foods')
         .select('*')
         .eq('source', 'openfoodfacts')
         .eq('external_id', barcode)
         .maybeSingle();
+      if (dbErr) console.log('[barcode] DB lookup error:', dbErr.message);
+      console.log('[barcode] DB hit:', dbHit ? (dbHit as Food).name : 'none');
 
       if (dbHit) {
-        // Use the existing search/confirm path with a real foodId.
         router.replace({
           pathname: '/log/confirm',
           params: { foodId: (dbHit as Food).id },
@@ -72,7 +78,9 @@ export default function BarcodeScreen() {
       }
 
       // 2) Live OFF lookup.
+      console.log('[barcode] querying Open Food Facts');
       const result = await lookupBarcode(barcode);
+      console.log('[barcode] OFF result:', result.kind);
       if (result.kind === 'ok') {
         setFood({ food: result.food, loggedVia: 'barcode' });
         router.replace('/log/confirm');
@@ -89,6 +97,7 @@ export default function BarcodeScreen() {
       }
       setStatus({ kind: 'error', barcode, message: result.message });
     } catch (err) {
+      console.log('[barcode] unexpected lookup error:', err);
       setStatus({
         kind: 'error',
         barcode,
@@ -295,9 +304,15 @@ export default function BarcodeScreen() {
 
 function Header({ onBack }: { onBack: () => void }) {
   return (
-    <View className="flex-row items-center gap-3 px-4 py-3">
+    <View
+      className="flex-row items-center gap-3 px-4 py-3"
+      style={{ zIndex: 10 }}
+    >
       <Pressable
-        onPress={onBack}
+        onPress={() => {
+          console.log('[barcode] back button pressed');
+          onBack();
+        }}
         hitSlop={12}
         className="h-10 w-10 items-center justify-center rounded-pill active:bg-bg-elevated"
       >
