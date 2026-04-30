@@ -21,10 +21,11 @@ const devSchema = z.object({
 type DevFormValues = z.infer<typeof devSchema>;
 
 // Pre-filled dev credentials so a tap signs you in immediately during testing.
-// Only ever rendered when __DEV__ is true.
+// Only ever rendered when __DEV__ is true. Values come from .env.local; a fork
+// or clone gets empty fields (and the dev path stays harmless).
 const DEV_DEFAULTS = {
-  email: 'nishant.mishra1120@gmail.com',
-  password: 'nutritrack-dev-2026',
+  email: process.env.EXPO_PUBLIC_DEV_EMAIL ?? '',
+  password: process.env.EXPO_PUBLIC_DEV_PASSWORD ?? '',
 };
 
 const REDIRECT_URL =
