@@ -1,6 +1,10 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-import { SYSTEM_PROMPT } from './prompts';
+import {
+  buildFoodParsePrompt,
+  SYSTEM_PROMPT,
+  type ParseFoodResponse,
+} from './prompts';
 
 const apiKey = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
 if (!apiKey) {
@@ -10,7 +14,10 @@ if (!apiKey) {
 
 const client = apiKey ? new GoogleGenerativeAI(apiKey) : null;
 
-const TEXT_MODEL = 'gemini-flash-latest';
+// gemini-flash-latest currently resolves to a "thinking" model with a 20/day
+// free quota. We pin to 2.5-flash-lite for a 1000/day quota and immediate
+// JSON output (no thinking budget eaten before the response).
+const TEXT_MODEL = 'gemini-2.5-flash-lite';
 
 export type LLMError = {
   kind: 'no_api_key' | 'rate_limit' | 'parse' | 'network' | 'unknown';
@@ -54,7 +61,7 @@ export async function callLLMJson<T>(
       systemInstruction: SYSTEM_PROMPT,
       generationConfig: {
         temperature: 0.4,
-        maxOutputTokens: opts.maxOutputTokens ?? 600,
+        maxOutputTokens: opts.maxOutputTokens ?? 1200,
         responseMimeType: 'application/json',
       },
     });
@@ -82,4 +89,38 @@ export async function callLLMJson<T>(
     }
     return { ok: false, error: { kind: 'unknown', message: msg } };
   }
+}
+
+// Light validation of the LLM's parsed response before we trust it.
+function isParseFoodResponse(x: unknown): x is ParseFoodResponse {
+  if (!x || typeof x !== 'object') return false;
+  const obj = x as Record<string, unknown>;
+  if (!Array.isArray(obj.items)) return false;
+  for (const item of obj.items) {
+    if (!item || typeof item !== 'object') return false;
+    const it = item as Record<string, unknown>;
+    if (typeof it.name !== 'string') return false;
+    if (typeof it.quantity !== 'number') return false;
+    if (typeof it.unit !== 'string') return false;
+    if (typeof it.calories_kcal !== 'number') return false;
+  }
+  return true;
+}
+
+export async function parseFoodText(userInput: string): Promise<LLMResult<ParseFoodResponse>> {
+  const result = await callLLMJson<ParseFoodResponse>(
+    buildFoodParsePrompt(userInput),
+    { maxOutputTokens: 1200 }
+  );
+  if (!result.ok) return result;
+  if (!isParseFoodResponse(result.data)) {
+    return {
+      ok: false,
+      error: {
+        kind: 'parse',
+        message: 'Gemini returned an unexpected JSON shape.',
+      },
+    };
+  }
+  return { ok: true, data: result.data };
 }

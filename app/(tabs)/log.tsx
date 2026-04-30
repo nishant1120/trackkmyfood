@@ -17,7 +17,7 @@ type Method =
       body: string;
       icon: React.ReactNode;
       available: true;
-      href: '/log/search';
+      href: '/log/search' | '/log/ai-text';
     }
   | {
       key: string;
@@ -41,7 +41,8 @@ const METHODS: Method[] = [
     title: 'Type with AI',
     body: '"2 rotis, 1 katori dal" — we parse the rest.',
     icon: <Sparkles size={22} color="#F59E0B" />,
-    available: false,
+    href: '/log/ai-text',
+    available: true,
   },
   {
     key: 'camera',

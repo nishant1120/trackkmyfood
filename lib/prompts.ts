@@ -73,3 +73,62 @@ export type DailyInsightResponse = {
   recommendations: { icon: string; title: string; body: string }[];
   health_action: string;
 };
+
+// ───────────────────────────────────────────────────────────────────
+// Food text parsing
+// ───────────────────────────────────────────────────────────────────
+
+export type ParsedFoodItem = {
+  name: string;
+  name_hindi: string | null;
+  quantity: number;
+  unit: 'g' | 'ml' | 'cup' | 'piece' | 'serving';
+  calories_kcal: number;
+  protein_g: number;
+  carbs_g: number;
+  fats_g: number;
+  fibre_g: number;
+  confidence: 'high' | 'medium' | 'low';
+};
+
+export type ParseFoodResponse = {
+  items: ParsedFoodItem[];
+  notes: string;
+};
+
+export function buildFoodParsePrompt(userInput: string): string {
+  return `User typed: ${JSON.stringify(userInput)}
+
+Extract every distinct food item with its quantity. For each item, estimate
+nutrition for the QUANTITY STATED (not per 100g — multiply if needed). Use
+IFCT 2017 values for Indian foods where possible.
+
+Return JSON in this exact shape — no prose, no markdown fences:
+{
+  "items": [
+    {
+      "name": "string (English, lowercase, e.g. 'roti', 'dal tadka')",
+      "name_hindi": "string or null",
+      "quantity": number,
+      "unit": "g" | "ml" | "cup" | "piece" | "serving",
+      "calories_kcal": number,
+      "protein_g": number,
+      "carbs_g": number,
+      "fats_g": number,
+      "fibre_g": number,
+      "confidence": "high" | "medium" | "low"
+    }
+  ],
+  "notes": "string — any clarification the user should verify, max 30 words. Empty string if none."
+}
+
+Rules:
+- One item per distinct food (don't merge "rice and dal" into one row).
+- "katori" of dal/sabzi ≈ 150g. "1 roti/chapati" ≈ 40g. "1 piece poha plate" ≈ 200g.
+- "1 glass milk" ≈ 250ml. "1 cup tea" ≈ 150ml.
+- If the input has no food (empty/garbage/non-food), return {"items": [], "notes": "I didn't recognize any food in that input. Try '2 rotis, 1 katori dal'."}
+- "confidence: low" for unusual or ambiguous foods you had to estimate heavily.
+- Use unit "g" or "ml" by default. Use "piece" only when the food is naturally counted (e.g. "1 banana", "1 boiled egg"). Use "cup"/"serving" sparingly.
+- Numbers must be plain (no strings, no ranges).
+`;
+}

@@ -1,5 +1,10 @@
 import { useRouter } from 'expo-router';
-import { ChevronLeft, Search as SearchIcon, X } from 'lucide-react-native';
+import {
+  ChevronLeft,
+  Search as SearchIcon,
+  Sparkles,
+  X,
+} from 'lucide-react-native';
 import { useState } from 'react';
 import {
   ActivityIndicator,
@@ -11,6 +16,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { Card } from '@/components/ui';
 import { useFoodSearch } from '@/hooks/useFoods';
 import type { Food } from '@/lib/types';
 
@@ -79,12 +85,23 @@ export default function FoodSearchScreen() {
                 <ActivityIndicator size="small" color="#1DB954" />
               </View>
             ) : (
-              <View className="items-center pt-12 px-4">
-                <Text className="text-fg-muted text-center text-sm">
-                  No matches. Try a shorter or different term.
+              <View className="px-2 pt-8">
+                <Text className="text-fg-muted mb-4 text-center text-sm">
+                  No matches in our database for "{query.trim()}".
                 </Text>
+                <AskAiCard query={query.trim()} onPress={() => goAsk(router, query.trim())} />
               </View>
             )
+          }
+          ListFooterComponent={
+            (data?.length ?? 0) > 0 ? (
+              <View className="mt-4 px-2">
+                <Text className="text-fg-dim mb-3 text-center text-xs">
+                  Not what you were looking for?
+                </Text>
+                <AskAiCard query={query.trim()} onPress={() => goAsk(router, query.trim())} />
+              </View>
+            ) : null
           }
           renderItem={({ item }) => (
             <FoodRow
@@ -100,6 +117,35 @@ export default function FoodSearchScreen() {
         />
       )}
     </SafeAreaView>
+  );
+}
+
+type Router = ReturnType<typeof useRouter>;
+
+function goAsk(router: Router, query: string) {
+  if (!query) return;
+  router.push({ pathname: '/log/ai-text', params: { initialQuery: query } });
+}
+
+function AskAiCard({ query, onPress }: { query: string; onPress: () => void }) {
+  return (
+    <Pressable onPress={onPress} className="active:opacity-80">
+      <Card>
+        <View className="flex-row items-center gap-3">
+          <View className="bg-bg-chip h-11 w-11 items-center justify-center rounded-full">
+            <Sparkles size={20} color="#F59E0B" />
+          </View>
+          <View className="flex-1">
+            <Text className="text-fg text-sm font-semibold">
+              Ask AI to estimate "{query}"
+            </Text>
+            <Text className="text-fg-muted mt-1 text-xs">
+              We'll parse your phrase and estimate macros.
+            </Text>
+          </View>
+        </View>
+      </Card>
+    </Pressable>
   );
 }
 

@@ -48,21 +48,54 @@ export function useAddFoodLog() {
       return data as FoodLog;
     },
     onSuccess: () => {
-      // refetchType: 'all' forces inactive queries (e.g. the dashboard tab
-      // when we're currently on the Log tab) to refetch instead of just
-      // marking them stale.
-      queryClient.invalidateQueries({
-        queryKey: ['daily-totals', userId],
-        refetchType: 'all',
-      });
-      queryClient.invalidateQueries({
-        queryKey: ['streak', userId],
-        refetchType: 'all',
-      });
-      queryClient.invalidateQueries({
-        queryKey: ['insights', userId],
-        refetchType: 'all',
-      });
+      invalidateLogs(queryClient, userId);
     },
+  });
+}
+
+export function useBulkAddFoodLogs() {
+  const queryClient = useQueryClient();
+  const userId = useAuthStore((s) => s.user?.id);
+
+  return useMutation({
+    mutationFn: async (inputs: FoodLogInput[]): Promise<FoodLog[]> => {
+      if (!userId) throw new Error('not signed in');
+      if (inputs.length === 0) return [];
+      const now = new Date().toISOString();
+      const payload = inputs.map((input) => ({
+        user_id: userId,
+        consumed_at: input.consumed_at ?? now,
+        ...input,
+      }));
+      const { data, error } = await supabase
+        .from('food_logs')
+        .insert(payload)
+        .select();
+      if (error) throw error;
+      return (data ?? []) as FoodLog[];
+    },
+    onSuccess: () => {
+      invalidateLogs(queryClient, userId);
+    },
+  });
+}
+
+function invalidateLogs(
+  queryClient: ReturnType<typeof useQueryClient>,
+  userId: string | undefined
+) {
+  // refetchType: 'all' forces inactive queries (the dashboard while we're on
+  // the Log tab) to refetch immediately instead of just being marked stale.
+  queryClient.invalidateQueries({
+    queryKey: ['daily-totals', userId],
+    refetchType: 'all',
+  });
+  queryClient.invalidateQueries({
+    queryKey: ['streak', userId],
+    refetchType: 'all',
+  });
+  queryClient.invalidateQueries({
+    queryKey: ['insights', userId],
+    refetchType: 'all',
   });
 }
