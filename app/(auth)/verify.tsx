@@ -7,9 +7,48 @@ import { supabase } from '@/lib/supabase';
 
 type Status = 'verifying' | 'error';
 
+type HashPayload = {
+  access_token?: string;
+  refresh_token?: string;
+  error?: string;
+  error_description?: string;
+};
+
+// Supabase magic-link redirects put tokens (or errors) in the URL fragment:
+//   /verify#access_token=...&refresh_token=...&type=magiclink
+//   /verify#error=access_denied&error_code=otp_expired&error_description=...
+function parseHash(): HashPayload {
+  if (Platform.OS !== 'web' || typeof window === 'undefined') return {};
+  const hash = window.location.hash.replace(/^#/, '');
+  if (!hash) return {};
+  const params = new URLSearchParams(hash);
+  const out: HashPayload = {};
+  for (const key of [
+    'access_token',
+    'refresh_token',
+    'error',
+    'error_description',
+  ] as const) {
+    const v = params.get(key);
+    if (v) out[key] = v;
+  }
+  return out;
+}
+
+function humanizeError(code: string | undefined, description: string | undefined) {
+  if (description) return description.replace(/\+/g, ' ');
+  if (code === 'otp_expired') return 'This magic link has expired. Request a new one.';
+  if (code === 'access_denied') return 'Access denied. Try requesting a new magic link.';
+  return 'Could not verify your magic link. Please try again.';
+}
+
 export default function VerifyScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ code?: string; error?: string; error_description?: string }>();
+  const params = useLocalSearchParams<{
+    code?: string;
+    error?: string;
+    error_description?: string;
+  }>();
   const [status, setStatus] = useState<Status>('verifying');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -17,31 +56,56 @@ export default function VerifyScreen() {
     let cancelled = false;
 
     async function exchange() {
-      // Supabase error returned in URL params (expired link, etc.)
-      if (params.error) {
+      const hash = parseHash();
+
+      // 1) Error signaled in URL (query OR hash)
+      const urlError = params.error ?? hash.error;
+      const urlErrorDesc = params.error_description ?? hash.error_description;
+      if (urlError) {
         if (!cancelled) {
-          setErrorMsg(params.error_description ?? params.error);
+          setErrorMsg(humanizeError(urlError, urlErrorDesc));
           setStatus('error');
         }
         return;
       }
 
-      // On web, detectSessionInUrl handles hash-based tokens automatically;
-      // we just need to wait for the auth listener to fire.
-      // For PKCE/native we exchange the `code` param explicitly.
-      if (params.code) {
-        const { error } = await supabase.auth.exchangeCodeForSession(params.code);
-        if (error && !cancelled) {
+      // 2) Implicit flow (default for email magic links): tokens in fragment.
+      if (hash.access_token && hash.refresh_token) {
+        const { error } = await supabase.auth.setSession({
+          access_token: hash.access_token,
+          refresh_token: hash.refresh_token,
+        });
+        if (cancelled) return;
+        if (error) {
           setErrorMsg(error.message);
           setStatus('error');
           return;
         }
+        // Clean tokens out of the URL bar before bouncing.
+        if (Platform.OS === 'web' && typeof window !== 'undefined') {
+          window.history.replaceState(null, '', window.location.pathname);
+        }
+        router.replace('/');
+        return;
       }
 
-      // Whether code-based or hash-based, the auth listener in _layout will
-      // pick up the new session and route us. Give it a moment, then bail
-      // out if nothing happened.
+      // 3) PKCE flow / native deep link: ?code=...
+      if (params.code) {
+        const { error } = await supabase.auth.exchangeCodeForSession(params.code);
+        if (cancelled) return;
+        if (error) {
+          setErrorMsg(error.message);
+          setStatus('error');
+          return;
+        }
+        router.replace('/');
+        return;
+      }
+
+      // 4) Nothing usable in the URL. Give detectSessionInUrl a moment in case
+      // the SDK is still processing, then give up.
       const t = setTimeout(async () => {
+        if (cancelled) return;
         const {
           data: { session },
         } = await supabase.auth.getSession();
@@ -49,10 +113,10 @@ export default function VerifyScreen() {
         if (session) {
           router.replace('/');
         } else {
-          setErrorMsg('Could not verify your magic link. Please try again.');
+          setErrorMsg('No verification info found in the link. Please try again.');
           setStatus('error');
         }
-      }, 2500);
+      }, 2000);
 
       return () => clearTimeout(t);
     }
