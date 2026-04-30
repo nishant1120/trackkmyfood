@@ -11,7 +11,7 @@ type PendingParse = {
   items: ParsedFoodItem[];
   notes: string;
   sourceText?: string;
-  loggedVia: 'ai_text' | 'camera';
+  loggedVia: 'ai_text' | 'camera' | 'template';
 };
 
 type PendingPhoto = {
@@ -34,7 +34,7 @@ type State = {
   set: (
     items: ParsedFoodItem[],
     notes: string,
-    opts?: { sourceText?: string; loggedVia?: 'ai_text' | 'camera' }
+    opts?: { sourceText?: string; loggedVia?: 'ai_text' | 'camera' | 'template' }
   ) => void;
   take: () => PendingParse | null;
   setPhoto: (photo: PendingPhoto) => void;

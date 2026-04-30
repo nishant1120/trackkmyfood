@@ -15,6 +15,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button, Card, Chip } from '@/components/ui';
 import { useBulkAddFoodLogs, type FoodLogInput } from '@/hooks/useFoodLogs';
+import {
+  useCreateTemplate,
+  type TemplateItem,
+} from '@/hooks/useTemplates';
 import type { ParsedFoodItem } from '@/lib/prompts';
 import type { MealType } from '@/lib/types';
 import { useAiParseStore } from '@/stores/aiParseStore';
@@ -46,12 +50,20 @@ export default function AiConfirmScreen() {
   const router = useRouter();
   const take = useAiParseStore((s) => s.take);
   const bulkAdd = useBulkAddFoodLogs();
+  const createTemplate = useCreateTemplate();
 
   const [items, setItems] = useState<EditableItem[]>([]);
   const [notes, setNotes] = useState<string>('');
   const [sourceText, setSourceText] = useState<string>('');
-  const [loggedVia, setLoggedVia] = useState<'ai_text' | 'camera'>('ai_text');
+  const [loggedVia, setLoggedVia] = useState<'ai_text' | 'camera' | 'template'>(
+    'ai_text'
+  );
   const [meal, setMeal] = useState<MealType>(defaultMeal());
+
+  // "Save as template" UX: a toggle + name input. When the toggle is on AND
+  // the name is non-empty, we also persist a template at save time.
+  const [saveTemplate, setSaveTemplate] = useState(false);
+  const [templateName, setTemplateName] = useState('');
 
   // Pop the pending parse on mount. If there's nothing pending (e.g. user
   // landed here via deep link), bounce back.
@@ -142,6 +154,33 @@ export default function AiConfirmScreen() {
 
     try {
       await bulkAdd.mutateAsync(inputs);
+
+      // Optionally persist as a reusable template. Failure here is non-fatal
+      // — the food logs already saved.
+      if (saveTemplate && templateName.trim().length > 0) {
+        try {
+          const templateItems: TemplateItem[] = items.map((it) => ({
+            name: it.name,
+            name_hindi: it.name_hindi,
+            food_id: null,
+            quantity: Number(it.quantity) || 0,
+            unit: it.unit,
+            calories_kcal: Number(it.calories_kcal) || 0,
+            protein_g: Number(it.protein_g) || 0,
+            carbs_g: Number(it.carbs_g) || 0,
+            fats_g: Number(it.fats_g) || 0,
+            fibre_g: Number(it.fibre_g) || 0,
+          }));
+          await createTemplate.mutateAsync({
+            name: templateName.trim(),
+            meal_type: meal,
+            items: templateItems,
+          });
+        } catch (err) {
+          console.warn('Template save failed:', err);
+        }
+      }
+
       router.dismissAll();
       router.replace('/(tabs)');
     } catch (err) {
@@ -176,6 +215,11 @@ export default function AiConfirmScreen() {
             <Text className="text-fg-dim text-xs">
               {loggedVia === 'camera' ? (
                 'From photo'
+              ) : loggedVia === 'template' ? (
+                <>
+                  Template:{' '}
+                  <Text className="text-fg-muted">{sourceText}</Text>
+                </>
               ) : (
                 <>
                   You typed:{' '}
@@ -223,6 +267,43 @@ export default function AiConfirmScreen() {
               />
             ))}
           </View>
+
+          {/* Save as template */}
+          {items.length > 0 && loggedVia !== 'template' ? (
+            <Card>
+              <Pressable
+                onPress={() => setSaveTemplate((v) => !v)}
+                className="flex-row items-center justify-between"
+              >
+                <View className="flex-1">
+                  <Text className="text-fg text-sm font-semibold">
+                    Save as template
+                  </Text>
+                  <Text className="text-fg-muted mt-1 text-xs">
+                    Reuse this combo with one tap from the Log tab.
+                  </Text>
+                </View>
+                <View
+                  className={`h-7 w-12 justify-center rounded-pill ${saveTemplate ? 'bg-brand' : 'bg-bg-chip'}`}
+                >
+                  <View
+                    className={`h-5 w-5 rounded-full bg-white ${saveTemplate ? 'ml-6' : 'ml-1'}`}
+                  />
+                </View>
+              </Pressable>
+              {saveTemplate ? (
+                <TextInput
+                  autoFocus
+                  value={templateName}
+                  onChangeText={setTemplateName}
+                  placeholder='e.g. "My usual breakfast"'
+                  placeholderTextColor="#7C7C7C"
+                  className="bg-bg-elevated text-fg mt-3 rounded-card px-3 py-3 text-sm"
+                  maxLength={60}
+                />
+              ) : null}
+            </Card>
+          ) : null}
 
           {/* Totals */}
           {items.length > 0 ? (
