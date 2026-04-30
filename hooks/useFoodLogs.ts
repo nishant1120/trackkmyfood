@@ -48,11 +48,21 @@ export function useAddFoodLog() {
       return data as FoodLog;
     },
     onSuccess: () => {
-      // Invalidate every daily-totals query for the user, plus the streak.
-      queryClient.invalidateQueries({ queryKey: ['daily-totals', userId] });
-      queryClient.invalidateQueries({ queryKey: ['streak', userId] });
-      // Insights depend on totals; force regeneration by invalidating.
-      queryClient.invalidateQueries({ queryKey: ['insights', userId] });
+      // refetchType: 'all' forces inactive queries (e.g. the dashboard tab
+      // when we're currently on the Log tab) to refetch instead of just
+      // marking them stale.
+      queryClient.invalidateQueries({
+        queryKey: ['daily-totals', userId],
+        refetchType: 'all',
+      });
+      queryClient.invalidateQueries({
+        queryKey: ['streak', userId],
+        refetchType: 'all',
+      });
+      queryClient.invalidateQueries({
+        queryKey: ['insights', userId],
+        refetchType: 'all',
+      });
     },
   });
 }

@@ -106,8 +106,8 @@ export default function ConfirmScreen() {
         ...scaled,
         logged_via: 'search',
       });
-      // Drop the entire log stack and route to dashboard so the user sees
-      // their updated totals immediately.
+      // Pop the log stack and land on the Home tab so the user sees the
+      // updated totals immediately.
       router.dismissAll();
       router.replace('/(tabs)');
     } catch (err) {

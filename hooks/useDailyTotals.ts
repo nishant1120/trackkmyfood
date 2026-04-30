@@ -53,6 +53,10 @@ export function useDailyTotals(date: Date = new Date()) {
   return useQuery({
     queryKey: dailyTotalsKey(userId, dayKey),
     enabled: !!userId,
+    // Daily totals reflect the user's most recent action; refetch on mount to
+    // pick up writes made while the dashboard tab was suspended.
+    staleTime: 0,
+    refetchOnMount: 'always',
     queryFn: async (): Promise<DailyTotals> => {
       if (!userId) throw new Error('not signed in');
       const { startISO, endISO } = dayBoundsISO(date);

@@ -1,6 +1,7 @@
+import { useRouter } from 'expo-router';
 import { Flame } from 'lucide-react-native';
 import { useState } from 'react';
-import { RefreshControl, ScrollView, Text, View } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 
 import { BMICard } from '@/components/dashboard/BMICard';
 import { InsightCard } from '@/components/dashboard/InsightCard';
@@ -29,6 +30,7 @@ function greeting(): string {
 }
 
 export default function Dashboard() {
+  const router = useRouter();
   const profileQuery = useProfile();
   const totalsQuery = useDailyTotals();
   const streakQuery = useStreak();
@@ -212,7 +214,22 @@ export default function Dashboard() {
         {/* Recent meals */}
         {recentMeals.length > 0 ? (
           <View>
-            <Text className="text-fg mb-3 text-sm font-semibold">Recent meals</Text>
+            <View className="mb-3 flex-row items-baseline justify-between">
+              <Text className="text-fg text-sm font-semibold">Recent meals</Text>
+              {(totals?.food_logs.length ?? 0) > 3 ? (
+                <Pressable onPress={() => router.push('/log/today')} hitSlop={8}>
+                  <Text className="text-brand text-xs font-semibold">
+                    View all ({totals?.food_logs.length})
+                  </Text>
+                </Pressable>
+              ) : (
+                <Pressable onPress={() => router.push('/log/today')} hitSlop={8}>
+                  <Text className="text-fg-dim text-xs font-semibold">
+                    View all
+                  </Text>
+                </Pressable>
+              )}
+            </View>
             <View className="gap-2">
               {recentMeals.map((m) => (
                 <RecentMealRow key={m.id} log={m} />
