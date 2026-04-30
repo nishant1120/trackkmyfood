@@ -197,26 +197,34 @@ export default function BarcodeScreen() {
 
             <Button onPress={onSubmitManual}>Look up</Button>
 
-            {!permission.granted && Platform.OS !== 'web' ? (
-              <View className="mt-2">
-                <Text className="text-fg-dim text-center text-xs">
-                  Or use the camera to scan automatically.
+            <View className="mt-2 items-center gap-1">
+              <Text className="text-fg-dim text-xs">or</Text>
+              <Button
+                variant="ghost"
+                onPress={async () => {
+                  if (!permission.granted) {
+                    const r = await requestPermission();
+                    if (!r.granted) {
+                      Alert.alert(
+                        'Camera blocked',
+                        Platform.OS === 'web'
+                          ? 'Allow camera access in your browser to scan with the camera.'
+                          : 'Allow camera access in Settings to scan with the camera.'
+                      );
+                      return;
+                    }
+                  }
+                  setManualEntry(false);
+                }}
+              >
+                Scan with camera
+              </Button>
+              {Platform.OS === 'web' ? (
+                <Text className="text-fg-dim mt-1 text-center text-[11px]">
+                  Web cameras vary; if scanning misses, use manual entry.
                 </Text>
-                <View className="mt-2">
-                  <Button variant="ghost" onPress={requestPermission}>
-                    Use camera scanner
-                  </Button>
-                </View>
-              </View>
-            ) : null}
-
-            {Platform.OS !== 'web' && permission.granted ? (
-              <View>
-                <Button variant="ghost" onPress={() => setManualEntry(false)}>
-                  Switch to camera scanner
-                </Button>
-              </View>
-            ) : null}
+              ) : null}
+            </View>
           </View>
         </KeyboardAvoidingView>
       </SafeAreaView>
