@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ChevronLeft } from 'lucide-react-native';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -16,7 +16,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, Card, Chip, Input, Segmented } from '@/components/ui';
 import { useAddFoodLog } from '@/hooks/useFoodLogs';
 import { useFood } from '@/hooks/useFoods';
-import type { Food, MealType, Unit } from '@/lib/types';
+import type { Food, LoggedVia, MealType, Unit } from '@/lib/types';
+import { useAiParseStore } from '@/stores/aiParseStore';
 
 const MEAL_OPTIONS: { value: MealType; label: string }[] = [
   { value: 'breakfast', label: 'Breakfast' },
@@ -64,8 +65,40 @@ function round(n: number, d: number): number {
 export default function ConfirmScreen() {
   const router = useRouter();
   const { foodId } = useLocalSearchParams<{ foodId: string }>();
-  const { data: food, isLoading } = useFood(foodId);
+  const { data: dbFood, isLoading } = useFood(foodId);
+  const takeFood = useAiParseStore((s) => s.takeFood);
+  const [pendingFood, setPendingFood] = useState<{
+    food: Omit<Food, 'id' | 'created_at'>;
+    loggedVia: LoggedVia;
+  } | null>(null);
   const addLog = useAddFoodLog();
+
+  // If we don't have a foodId, pop the pendingFood from the store (e.g. from
+  // the barcode flow). One-shot: if the user reloads, we bounce back.
+  useEffect(() => {
+    if (foodId) return;
+    const popped = takeFood();
+    if (!popped) {
+      router.replace('/(tabs)/log');
+      return;
+    }
+    setPendingFood(popped);
+  }, [foodId, router, takeFood]);
+
+  // Materialize a Food-shaped object for the rest of the component.
+  const food: Food | null = useMemo(() => {
+    if (dbFood) return dbFood;
+    if (pendingFood) {
+      return {
+        id: '',
+        created_at: '',
+        ...pendingFood.food,
+      } as Food;
+    }
+    return null;
+  }, [dbFood, pendingFood]);
+
+  const loggedVia: LoggedVia = pendingFood?.loggedVia ?? 'search';
 
   const [quantity, setQuantity] = useState<string>('100');
   const [unit, setUnit] = useState<Unit>('g');
@@ -81,7 +114,8 @@ export default function ConfirmScreen() {
     [food, qtyNum]
   );
 
-  if (isLoading || !food) {
+  // Loading: either DB query in flight, or no foodId AND store pop hasn't run yet.
+  if ((foodId && isLoading) || !food) {
     return (
       <SafeAreaView className="flex-1 bg-bg" edges={['top', 'bottom']}>
         <View className="flex-1 items-center justify-center">
@@ -98,13 +132,18 @@ export default function ConfirmScreen() {
     }
     try {
       await addLog.mutateAsync({
-        food_id: food.id,
-        ai_food_data: { name: food.name },
+        food_id: food.id || null,
+        ai_food_data: {
+          name: food.name,
+          brand: food.brand,
+          source: food.source,
+          external_id: food.external_id,
+        },
         meal_type: mealType,
         quantity: qtyNum,
         unit,
         ...scaled,
-        logged_via: 'search',
+        logged_via: loggedVia,
       });
       // Pop the log stack and land on the Home tab so the user sees the
       // updated totals immediately.

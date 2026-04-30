@@ -17,7 +17,7 @@ type Method =
       body: string;
       icon: React.ReactNode;
       available: true;
-      href: '/log/search' | '/log/ai-text' | '/log/camera';
+      href: '/log/search' | '/log/ai-text' | '/log/camera' | '/log/barcode';
     }
   | {
       key: string;
@@ -57,7 +57,8 @@ const METHODS: Method[] = [
     title: 'Scan barcode',
     body: 'For packaged items with a label.',
     icon: <Barcode size={22} color="#539DF5" />,
-    available: false,
+    href: '/log/barcode',
+    available: true,
   },
 ];
 

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 
 import type { ParsedFoodItem } from '@/lib/prompts';
+import type { Food } from '@/lib/types';
 
 // Holds payloads in transit between log screens — text/vision parses on the
 // way to ai-confirm, and the captured photo on the way to photo-confirm.
@@ -18,9 +19,18 @@ type PendingPhoto = {
   uri: string;
 };
 
+// One-off Food rows that don't live in our DB yet — currently used for OFF
+// barcode lookups that miss our seeded set. confirm.tsx reads this when no
+// foodId is provided.
+type PendingFood = {
+  food: Omit<Food, 'id' | 'created_at'>;
+  loggedVia: 'barcode';
+};
+
 type State = {
   pending: PendingParse | null;
   pendingPhoto: PendingPhoto | null;
+  pendingFood: PendingFood | null;
   set: (
     items: ParsedFoodItem[],
     notes: string,
@@ -29,12 +39,15 @@ type State = {
   take: () => PendingParse | null;
   setPhoto: (photo: PendingPhoto) => void;
   takePhoto: () => PendingPhoto | null;
+  setFood: (food: PendingFood) => void;
+  takeFood: () => PendingFood | null;
   clear: () => void;
 };
 
 export const useAiParseStore = create<State>((set, get) => ({
   pending: null,
   pendingPhoto: null,
+  pendingFood: null,
   set: (items, notes, opts) =>
     set({
       pending: {
@@ -55,5 +68,11 @@ export const useAiParseStore = create<State>((set, get) => ({
     set({ pendingPhoto: null });
     return v;
   },
-  clear: () => set({ pending: null, pendingPhoto: null }),
+  setFood: (food) => set({ pendingFood: food }),
+  takeFood: () => {
+    const v = get().pendingFood;
+    set({ pendingFood: null });
+    return v;
+  },
+  clear: () => set({ pending: null, pendingPhoto: null, pendingFood: null }),
 }));
