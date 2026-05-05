@@ -28,12 +28,22 @@ const DEV_DEFAULTS = {
   password: process.env.EXPO_PUBLIC_DEV_PASSWORD ?? '',
 };
 
-const REDIRECT_URL =
-  Platform.OS === 'web'
-    ? typeof window !== 'undefined'
-      ? `${window.location.origin}/verify`
-      : 'http://localhost:8081/verify'
-    : 'nutritrack://verify';
+// Computed at call time, not module load. Module-load evaluation runs during
+// `expo export` server prerender where `window` is undefined — that used to
+// bake `http://localhost:8081/verify` into the production bundle, so emails
+// arrived with the wrong host.
+function getRedirectUrl(): string {
+  if (Platform.OS !== 'web') return 'nutritrack://verify';
+  // Prefer an explicit site URL when present; useful for SSR / preview deploys
+  // where `window.location` would point at the preview domain instead of the
+  // canonical production one.
+  const explicit = process.env.EXPO_PUBLIC_SITE_URL;
+  if (explicit) return `${explicit.replace(/\/$/, '')}/verify`;
+  if (typeof window !== 'undefined' && window.location?.origin) {
+    return `${window.location.origin}/verify`;
+  }
+  return 'http://localhost:8081/verify';
+}
 
 export default function SignInScreen() {
   const router = useRouter();
@@ -75,7 +85,7 @@ export default function SignInScreen() {
   const onSubmit = async ({ email }: FormValues) => {
     const { error } = await supabase.auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: REDIRECT_URL },
+      options: { emailRedirectTo: getRedirectUrl() },
     });
     if (error) {
       const friendly =
